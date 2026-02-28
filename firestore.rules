@@ -1,0 +1,103 @@
+rules_version = '2';
+
+/**
+ * Firestore Security Rules — E-Learn
+ *
+ * Enforces:
+ * - Users can only read/write their own data
+ * - Admins can access everything
+ * - Questions are scoped to reviewer ownership
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // Helper: Check if user is authenticated
+    // ========================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ========================================
+    // Helper: Check if user is admin
+    // ========================================
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // ========================================
+    // Helper: Check if user owns the document
+    // ========================================
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ========================================
+    // Users Collection
+    // ========================================
+    match /users/{userId} {
+      // Users can read their own profile; admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Only admins can create/update/delete user docs
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ========================================
+    // Folders Collection
+    // ========================================
+    match /folders/{folderId} {
+      // Owner can read/write; admin can read/write all
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ========================================
+    // Reviewers Collection
+    // ========================================
+    match /reviewers/{reviewerId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ========================================
+    // Questions Collection
+    // ========================================
+    match /questions/{questionId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ========================================
+    // Scores Collection (Quiz Mode)
+    // ========================================
+    match /scores/{scoreId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow delete: if isAdmin();
+    }
+  }
+}

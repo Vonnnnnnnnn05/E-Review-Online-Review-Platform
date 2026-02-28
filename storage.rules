@@ -1,0 +1,22 @@
+rules_version = '2';
+
+/**
+ * Firebase Storage Security Rules — E-Learn
+ *
+ * - Authenticated users can upload to their own folder
+ * - Max file size: 20MB
+ * - Allowed types: PDF, DOCX, TXT
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /uploads/{userId}/{allPaths=**} {
+      // Only the file owner can upload
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 20 * 1024 * 1024;
+
+      // Owner and admins can read
+      allow read: if request.auth != null;
+    }
+  }
+}
